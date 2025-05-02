@@ -25,7 +25,7 @@ frame.BorderSizePixel = 0
 frame.ClipsDescendants = true
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 
--- Notificação no canto inferior direito
+-- Notificação
 local notification = Instance.new("Frame", gui)
 notification.Size = UDim2.new(0, 300, 0, 60)
 notification.Position = UDim2.new(1, -310, 1, -80)
@@ -55,7 +55,6 @@ loadedLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
 loadedLabel.TextSize = 14
 loadedLabel.TextXAlignment = Enum.TextXAlignment.Left
 
--- Esconde a notificação após 5 segundos
 task.delay(5, function()
 	if notification then
 		notification:Destroy()
@@ -156,22 +155,44 @@ fovCircle.NumSides = 64
 fovCircle.Filled = false
 fovCircle.Visible = true
 
--- Função para pegar jogador mais próximo
+-- Função para verificar se há linha de visão (WallCheck)
+local function isVisible(targetPart)
+	local origin = Camera.CFrame.Position
+	local direction = (targetPart.Position - origin)
+	local rayParams = RaycastParams.new()
+	rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+	rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+	rayParams.IgnoreWater = true
+
+	local result = workspace:Raycast(origin, direction, rayParams)
+	if result then
+		return result.Instance:IsDescendantOf(targetPart.Parent)
+	end
+	return false
+end
+
+-- Função para pegar o jogador mais próximo com WallCheck
 local function getClosestPlayer()
-	local closest, shortest = nil, FOV
+	local closestPlayer = nil
+	local shortestDistance = FOV
+
 	for _, player in ipairs(Players:GetPlayers()) do
 		if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
-			local screenPos, onScreen = Camera:WorldToViewportPoint(player.Character.Head.Position)
+			local head = player.Character.Head
+			local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+
 			if onScreen then
-				local dist = (Vector2.new(screenPos.X, screenPos.Y) - Camera.ViewportSize / 2).Magnitude
-				if dist < shortest then
-					shortest = dist
-					closest = player
+				local distance = (Vector2.new(screenPos.X, screenPos.Y) - Camera.ViewportSize / 2).Magnitude
+
+				if distance < shortestDistance and isVisible(head) then
+					shortestDistance = distance
+					closestPlayer = player
 				end
 			end
 		end
 	end
-	return closest
+
+	return closestPlayer
 end
 
 -- Botões
@@ -279,7 +300,7 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- Limpeza ao sair ou respawn
+-- Limpeza
 Players.PlayerRemoving:Connect(function(player)
 	if espCache[player] then
 		for _, label in pairs(espCache[player]) do
